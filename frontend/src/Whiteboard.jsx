@@ -426,6 +426,21 @@ const Whiteboard = () => {
     if (editingText) return; // ignore canvas clicks while text editor is open
     const screen = getMouse(e);
     const world = screenToWorld(screen.x, screen.y, pan, zoom);
+
+    // Text tool: open editor immediately, no pointer capture needed
+    if (tool === "text") {
+      e.preventDefault();
+      const id = uid();
+      setEditingText({
+        id,
+        worldX: world.x,
+        worldY: world.y,
+        value: "",
+        openedAt: Date.now(),
+      });
+      return;
+    }
+
     canvasRef.current.setPointerCapture?.(e.pointerId);
 
     // panning override (middle mouse or space drag)
@@ -484,18 +499,6 @@ const Whiteboard = () => {
         pushHistory(next);
       }
       drawingRef.current = { kind: "erase" };
-      return;
-    }
-
-    if (tool === "text") {
-      // open text editor at click position
-      const id = uid();
-      setEditingText({
-        id,
-        worldX: world.x,
-        worldY: world.y,
-        value: "",
-      });
       return;
     }
 
@@ -870,7 +873,12 @@ const Whiteboard = () => {
   // ---- focus text input when editing ----
   useEffect(() => {
     if (editingText && textInputRef.current) {
-      textInputRef.current.focus();
+      // double-rAF to outlast pointer/click event focus shifts
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          textInputRef.current?.focus();
+        });
+      });
     }
   }, [editingText]);
 
@@ -931,7 +939,16 @@ const Whiteboard = () => {
           onChange={(e) =>
             setEditingText({ ...editingText, value: e.target.value })
           }
-          onBlur={commitText}
+          onBlur={() => {
+            // Ignore the spurious initial blur right after the textarea opens
+            // (focus can briefly move during the click sequence that opened it).
+            if (editingText && Date.now() - (editingText.openedAt || 0) < 250) {
+              // Re-focus
+              requestAnimationFrame(() => textInputRef.current?.focus());
+              return;
+            }
+            commitText();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               setEditingText(null);
