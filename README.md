@@ -203,6 +203,8 @@ PRs welcome. Please keep:
 
 ---
 
-## License
+#### License
 
-MIT © 2026 — built with [Emergent](https://app.emergent.sh).
+MIT License
+
+Copyright (c) 2026 Mayank Xalxo
